@@ -1,0 +1,47 @@
+name: Build aapt2 ARM
+
+on:
+  workflow_dispatch:
+  push: { branches: [main] }
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Free disk
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc
+          sudo rm -rf /opt/hostedtoolcache/CodeQL
+          sudo rm -rf /usr/local/share/boost
+          df -h /
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build image
+        run: docker build -t aapt2-builder .
+
+      - name: Run build
+        run: |
+          mkdir -p out
+          docker run --rm -v $PWD/out:/work/out aapt2-builder 2>&1 | tee build.log || true
+
+      - name: Show
+        run: |
+          ls -la out/ || true
+          file out/* 2>/dev/null || true
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: aapt2-arm
+          path: out/
+          if-no-files-found: warn
+
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: build.log
+          if-no-files-found: ignore
